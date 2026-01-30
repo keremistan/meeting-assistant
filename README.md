@@ -1,0 +1,1 @@
+This is a meeting assistant that helps with taking notes during video meetings

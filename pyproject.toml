@@ -1,0 +1,14 @@
+[project]
+name = "meeting-assistant"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "huggingface-hub<0.25",
+    "openai-whisper>=20250625",
+    "scikit-learn>=1.8.0",
+    "speechbrain>=1.0.3",
+    "torchaudio>=2.10.0",
+    "torchcodec>=0.10.0",
+]

@@ -1,0 +1,11 @@
+.DS_Store
+/bin
+/lib
+
+/data
+
+/CACHEDIR.TAG
+pyvenv.cfg
+
+/tmp_model
+/share
