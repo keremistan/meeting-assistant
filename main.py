@@ -16,10 +16,21 @@ import numpy as np
 def transcribe_audio():
     # Define paths
     data_folder = "data"
-    audio_file = "sample_one_minute.wav"
+    audio_file = "sample.mp3"
     audio_path = os.path.join(data_folder, audio_file)
     output_file = "transcription.txt"
     output_path = os.path.join(data_folder, output_file)
+
+    # Configuration
+    num_speakers = None  # Set to a specific integer (e.g. 3) to enforce speaker count, or None for auto-detection
+
+    # Device configuration
+    device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available() else "cpu"
+    )
+    print(f"Using device: {device}")
 
     # Check if audio file exists
     if not os.path.exists(audio_path):
@@ -28,7 +39,7 @@ def transcribe_audio():
 
     # 1. Transcribe with Whisper
     print(f"Loading Whisper model...")
-    model = whisper.load_model("turbo")
+    model = whisper.load_model("turbo", device=device)
 
     print(f"Transcribing {audio_file}...")
     result = model.transcribe(audio_path)
@@ -41,7 +52,7 @@ def transcribe_audio():
     spk_model = EncoderClassifier.from_hparams(
         source="speechbrain/spkrec-ecapa-voxceleb",
         savedir="tmp_model",
-        run_opts={"device": "cpu"},
+        run_opts={"device": device},
     )
 
     print("Computing speaker embeddings...")
@@ -77,7 +88,7 @@ def transcribe_audio():
 
         with torch.no_grad():
             full_emb = spk_model.encode_batch(segment_signal)
-            embeddings.append(full_emb[0, 0, :].numpy())
+            embeddings.append(full_emb[0, 0, :].cpu().numpy())
 
     embeddings = np.array(embeddings)
 
@@ -89,12 +100,19 @@ def transcribe_audio():
     norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
     embeddings = embeddings / (norms + 1e-10)
 
-    clustering = AgglomerativeClustering(
-        n_clusters=None,
-        distance_threshold=1.5,  # Tune this threshold. 1.0-2.0 is usually decent for normalized vectors
-        metric="euclidean",
-        linkage="ward",
-    )
+    if num_speakers is not None:
+        clustering = AgglomerativeClustering(
+            n_clusters=num_speakers,
+            metric="euclidean",
+            linkage="ward",
+        )
+    else:
+        clustering = AgglomerativeClustering(
+            n_clusters=None,
+            distance_threshold=2.0,  # Tune this threshold. 1.0-2.0 is usually decent for normalized vectors
+            metric="euclidean",
+            linkage="ward",
+        )
     labels = clustering.fit_predict(embeddings)
 
     num_speakers = len(set(labels))

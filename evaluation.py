@@ -92,21 +92,15 @@ def run_evaluation():
         # Log scores to trace using the client instance
         langfuse.score_current_trace(
             name="Accuracy",
-            value=safe_score(res.accuracy_score),
+            value=res.accuracy_score,
             comment=str(res.reasoning),
         )
+        langfuse.score_current_trace(name="Completeness", value=res.completeness_score)
+        langfuse.score_current_trace(name="Structure", value=res.structure_score)
         langfuse.score_current_trace(
-            name="Completeness", value=safe_score(res.completeness_score)
+            name="Hallucination", value=res.hallucination_score
         )
-        langfuse.score_current_trace(
-            name="Structure", value=safe_score(res.structure_score)
-        )
-        langfuse.score_current_trace(
-            name="Hallucination", value=safe_score(res.hallucination_score)
-        )
-        langfuse.score_current_trace(
-            name="General Score", value=safe_score(res.general_score)
-        )
+        langfuse.score_current_trace(name="General Score", value=res.general_score)
         return res
 
     result = run_eval_logic(transcript_text, protocol_text)
