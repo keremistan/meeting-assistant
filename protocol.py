@@ -1,6 +1,14 @@
 import dspy
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
+from langfuse import get_client
+from langfuse.langchain import CallbackHandler
+
+# Initialize Langfuse client
+langfuse = get_client()
+
+# Initialize Langfuse CallbackHandler for Langchain (tracing)
+langfuse_handler = CallbackHandler()
 
 
 # 1. Define DSPy Signature
@@ -110,7 +118,7 @@ def run_protocol_extraction():
     }
 
     print("Starting LangGraph workflow...")
-    app.invoke(input_state)
+    app.invoke(input_state, config={"callbacks": [langfuse_handler]})
     print("Workflow completed.")
 
 
