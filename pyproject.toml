@@ -5,7 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "dspy-ai>=3.1.2",
     "huggingface-hub<0.25",
+    "langgraph>=1.0.7",
     "openai-whisper>=20250625",
     "scikit-learn>=1.8.0",
     "speechbrain>=1.0.3",
