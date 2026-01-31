@@ -17,6 +17,8 @@ class MeetingConstitution(dspy.Signature):
     Create a meeting protocol based on the transcript.
     Extract Agenda, Decisions, Tasks (Todos), Open Themes, and Facts.
 
+    Discard all names and assignees from the protocol. No person names should be mentioned in the protocol.
+
     IMPORTANT: The content of the protocol (the values in the lists) MUST be in GERMAN.
     """
 
