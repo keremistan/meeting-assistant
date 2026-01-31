@@ -14,19 +14,20 @@ langfuse_handler = CallbackHandler()
 # 1. Define DSPy Signature
 class MeetingConstitution(dspy.Signature):
     """
-    Extract the agenda items, decisions, todos, open themes, and facts from the meeting transcript.
-    Input is a raw meeting transcript.
-    Output should be structured markdown.
+    Create a meeting protocol based on the transcript.
+    Extract Agenda, Decisions, Tasks (Todos), Open Themes, and Facts.
+
+    IMPORTANT: The content of the protocol (the values in the lists) MUST be in GERMAN.
     """
 
     transcript = dspy.InputField(desc="The full transcript of the meeting")
-    agenda_items = dspy.OutputField(desc="List of agenda items discussed")
-    decisions = dspy.OutputField(desc="List of decisions made during the meeting")
-    todos = dspy.OutputField(
-        desc="List of action items / todos with assigned owners if possible"
+    agenda_items = dspy.OutputField(desc="List of discussed agenda items (in German)")
+    decisions = dspy.OutputField(desc="List of decisions made (in German)")
+    todos = dspy.OutputField(desc="List of tasks / todos with assignees (in German)")
+    open_themes = dspy.OutputField(
+        desc="List of open themes or unresolved issues (in German)"
     )
-    open_themes = dspy.OutputField(desc="List of open themes or unresolved issues")
-    facts = dspy.OutputField(desc="List of factual information mentioned")
+    facts = dspy.OutputField(desc="List of mentioned facts (in German)")
 
 
 # 2. Define LangGraph State
@@ -71,25 +72,25 @@ def extract_protocol_node(state: ProtocolState):
             return field_value
         return []
 
-    md_output = f"# Meeting Protocol\n\n"
+    md_output = f"# Meeting Protokoll\n\n"
 
-    md_output += "## Agenda Items\n"
+    md_output += "## Agenda\n"
     for item in format_field(result.agenda_items):
         md_output += f"- {item}\n"
 
-    md_output += "\n## Decisions\n"
+    md_output += "\n## Entscheidungen\n"
     for item in format_field(result.decisions):
         md_output += f"- {item}\n"
 
-    md_output += "\n## Todos\n"
+    md_output += "\n## Aufgaben (Todos)\n"
     for item in format_field(result.todos):
         md_output += f"- {item}\n"
 
-    md_output += "\n## Open Themes\n"
+    md_output += "\n## Offene Themen\n"
     for item in format_field(result.open_themes):
         md_output += f"- {item}\n"
 
-    md_output += "\n## Facts\n"
+    md_output += "\n## Fakten\n"
     for item in format_field(result.facts):
         md_output += f"- {item}\n"
 
@@ -112,13 +113,17 @@ def run_protocol_extraction():
 
     # Execute
     input_state = {
-        "transcript_path": "data/transcription_complete.txt",
+        "transcript_path": "data/transcription.txt",
         "output_path": "data/protocol.md",
         "protocol_content": "",
     }
 
     print("Starting LangGraph workflow...")
-    app.invoke(input_state, config={"callbacks": [langfuse_handler]})
+    # Use run_name to name the trace in Langfuse
+    app.invoke(
+        input_state,
+        config={"run_name": "Protocol Creation", "callbacks": [langfuse_handler]},
+    )
     print("Workflow completed.")
 
 

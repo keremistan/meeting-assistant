@@ -17,30 +17,30 @@ DSPyInstrumentor().instrument()
 # Define the Evaluation Signature
 class ProtocolEvaluation(dspy.Signature):
     """
-    Evaluate the quality of a meeting protocol based on the provided transcription.
-    You are an expert judge. Compare the Protocol against the Transcription.
+    Evaluate the quality of the meeting protocol based on the provided transcription.
+    You are an expert judge. Compare the meeting protocol against the transcription.
 
-    Assess the following subcategories on a scale of 1 to 10 (10 being perfect):
+    Assess the following subcategories on a scale of 1 to 10 (10 being perfect).
+    IMPORTANT: You must return an INTEGER value between 1 and 10.
+    EXAMPLES: 2, 5, 8, 9, 10.
+
     1. Accuracy: Do the facts in the protocol match the transcript? Are there any errors?
     2. Completeness: Does the protocol capture all key agenda items, decisions, and todos?
     3. Structure: Is the markdown structure clear and logical?
-    4. Hallucination Check: Does the protocol invent information not present in the transcript? (10 = No hallucinations, 1 = fabricated content)
-
-    Calculate a General Score (1-10) based on these subscores.
-    Provide reasoning for your scores.
+    4. Hallucination Check: Does the protocol stay true to the transcript? Are all facts supported by the transcript? (10 = no hallucinations, 1 = high hallucinations)
     """
 
     transcript = dspy.InputField(desc="Raw text of the meeting transcription")
     protocol = dspy.InputField(desc="Generated meeting protocol (markdown)")
 
-    accuracy_score = dspy.OutputField(desc="Score 1-10 for accuracy")
-    completeness_score = dspy.OutputField(desc="Score 1-10 for completeness")
-    structure_score = dspy.OutputField(desc="Score 1-10 for structure")
+    accuracy_score = dspy.OutputField(desc="Integer Score 1-10 for accuracy")
+    completeness_score = dspy.OutputField(desc="Integer Score 1-10 for completeness")
+    structure_score = dspy.OutputField(desc="Integer Score 1-10 for structure")
     hallucination_score = dspy.OutputField(
-        desc="Score 1-10 for absence of hallucinations (high is good)"
+        desc="Integer Score 1-10 for hallucination check (10=no hallucinations, 1=high hallucinations)"
     )
-    general_score = dspy.OutputField(desc="Overall score 1-10 representing the quality")
-    reasoning = dspy.OutputField(desc="Detailed explanation for the given scores")
+    general_score = dspy.OutputField(desc="Integer Score 1-10 for general quality")
+    reasoning = dspy.OutputField(desc="Analysis of the protocol quality")
 
 
 def run_evaluation():
@@ -75,33 +75,68 @@ def run_evaluation():
     dspy.configure(lm=lm)
 
     print("Running LLM-as-judge evaluation...")
-    evaluator = dspy.Predict(ProtocolEvaluation)
-    result = evaluator(transcript=transcript_text, protocol=protocol_text)
+
+    from langfuse import observe
+
+    def safe_score(value, default=0):
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return default
+
+    @observe(name="Protocol Evaluation")
+    def run_eval_logic(t_text, p_text):
+        evaluator = dspy.Predict(ProtocolEvaluation)
+        res = evaluator(transcript=t_text, protocol=p_text)
+
+        # Log scores to trace using the client instance
+        langfuse.score_current_trace(
+            name="Accuracy",
+            value=safe_score(res.accuracy_score),
+            comment=str(res.reasoning),
+        )
+        langfuse.score_current_trace(
+            name="Completeness", value=safe_score(res.completeness_score)
+        )
+        langfuse.score_current_trace(
+            name="Structure", value=safe_score(res.structure_score)
+        )
+        langfuse.score_current_trace(
+            name="Hallucination", value=safe_score(res.hallucination_score)
+        )
+        langfuse.score_current_trace(
+            name="General Score", value=safe_score(res.general_score)
+        )
+        return res
+
+    result = run_eval_logic(transcript_text, protocol_text)
+
+    print("DEBUG: {}".format(result))
 
     # Output results
     print("\nXXX Evaluation Results XXX")
-    print(f"Accuracy: {result.accuracy_score}/10")
-    print(f"Completeness: {result.completeness_score}/10")
-    print(f"Structure: {result.structure_score}/10")
-    print(f"Hallucination Check: {result.hallucination_score}/10")
-    print(f"General Score: {result.general_score}/10")
+    print(f"Accuracy: {result.accuracy_score}")
+    print(f"Completeness: {result.completeness_score}")
+    print(f"Structure: {result.structure_score}")
+    print(f"Hallucination Check: {result.hallucination_score}")
+    print(f"General Score: {result.general_score}")
     print("\nReasoning:")
     print(result.reasoning)
 
     # Save report
     report_content = f"""# Protocol Evaluation Report
 
-**General Score**: {result.general_score}/10
+        **General Score**: {result.general_score}
 
-## Subcategory Scores
-- **Accuracy**: {result.accuracy_score}/10
-- **Completeness**: {result.completeness_score}/10
-- **Structure**: {result.structure_score}/10
-- **Hallucination Check**: {result.hallucination_score}/10
+        ## Subcategory Scores
+        - **Accuracy**: {result.accuracy_score}
+        - **Completeness**: {result.completeness_score}
+        - **Structure**: {result.structure_score}
+        - **Hallucination Check**: {result.hallucination_score}
 
-## Reasoning
-{result.reasoning}
-"""
+        ## Reasoning
+        {result.reasoning}
+        """
     with open(report_path, "w") as f:
         f.write(report_content)
     print(f"\nReport saved to {report_path}")
