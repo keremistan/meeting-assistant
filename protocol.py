@@ -1,6 +1,5 @@
 import dspy
-import os
-from typing import TypedDict, List
+from typing import TypedDict
 from langgraph.graph import StateGraph, END
 
 
@@ -105,7 +104,7 @@ def run_protocol_extraction():
 
     # Execute
     input_state = {
-        "transcript_path": "data/transcription.txt",
+        "transcript_path": "data/transcription_complete.txt",
         "output_path": "data/protocol.md",
         "protocol_content": "",
     }
