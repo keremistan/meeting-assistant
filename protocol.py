@@ -15,21 +15,27 @@ langfuse_handler = CallbackHandler()
 class MeetingConstitution(dspy.Signature):
     """
     Create a meeting protocol based on the transcript.
-    Extract Agenda, Decisions, Tasks (Todos), Open Themes, and Facts.
+    Extract Agenda, Todos and Open Issues.
 
     Discard all names and assignees from the protocol. No person names should be mentioned in the protocol.
 
     IMPORTANT: The content of the protocol (the values in the lists) MUST be in GERMAN.
+    Always use the same language as the transcript.
+    If you are not sure about the content of a field, return an empty list.
+    If something is already in the protocol, do not add it again.
+    Add the content to the protocol only if it is IMPORTANT. Otherwise it is just noise.
+    Put the content to the protocol only if you are CONFIDENT about it.
+
+    The transcript is from a meeting therefore it mostly contains opinions instead of facts.
+
+    When writing the protocol, use the original terms from the transcript.
     """
 
     transcript = dspy.InputField(desc="The full transcript of the meeting")
-    agenda_items = dspy.OutputField(desc="List of discussed agenda items (in German)")
-    decisions = dspy.OutputField(desc="List of decisions made (in German)")
-    todos = dspy.OutputField(desc="List of tasks / todos with assignees (in German)")
-    open_themes = dspy.OutputField(
-        desc="List of open themes or unresolved issues (in German)"
-    )
-    facts = dspy.OutputField(desc="List of mentioned facts (in German)")
+
+    agenda_items = dspy.OutputField(desc="List of discussed agenda items")
+    todos = dspy.OutputField(desc="List of tasks / todos that are explicitly mentioned in the transcript and assigned to a person. DO NOT add todos to this list if they are just expressed as a general idea or a suggestion.")
+    open_issues = dspy.OutputField(desc="List of open themes or unresolved issues. These are topic that do not have a clear next step and only mentioned in the transcript. DO NOT add todos to this list.")
 
 
 # 2. Define LangGraph State
@@ -56,7 +62,7 @@ def extract_protocol_node(state: ProtocolState):
 
     print("Extracting protocol using DSPy...")
     # Use ChainOfThought or Predict
-    extractor = dspy.Predict(MeetingConstitution)
+    extractor = dspy.ChainOfThought(MeetingConstitution)
     result = extractor(transcript=transcript_text)
 
     # Format output as Markdown
@@ -80,20 +86,12 @@ def extract_protocol_node(state: ProtocolState):
     for item in format_field(result.agenda_items):
         md_output += f"- {item}\n"
 
-    md_output += "\n## Entscheidungen\n"
-    for item in format_field(result.decisions):
-        md_output += f"- {item}\n"
-
-    md_output += "\n## Aufgaben (Todos)\n"
+    md_output += "\n## Aufgaben\n"
     for item in format_field(result.todos):
         md_output += f"- {item}\n"
 
     md_output += "\n## Offene Themen\n"
-    for item in format_field(result.open_themes):
-        md_output += f"- {item}\n"
-
-    md_output += "\n## Fakten\n"
-    for item in format_field(result.facts):
+    for item in format_field(result.open_issues):
         md_output += f"- {item}\n"
 
     # Save to file
