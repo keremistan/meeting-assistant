@@ -42,7 +42,14 @@ def transcribe_audio():
     model = whisper.load_model("turbo", device=device)
 
     print(f"Transcribing {audio_file}...")
-    result = model.transcribe(audio_path)
+    result = model.transcribe(
+        audio_path,
+        language="de",
+        temperature=[0.0, 0.2],
+        condition_on_previous_text=True,
+        beam_size=5,
+        # compression_ratio_threshold=1.5, #todo: try out this as well
+    )
     segments = result["segments"]
 
     # 2. diarization using SpeechBrain + sklearn
